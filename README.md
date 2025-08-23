@@ -1,14 +1,13 @@
-<<<<<<< HEAD
-# DaxNodes - Professional ComfyUI Node Pack
+# DaxNodes - ComfyUI Node Pack
 
-A comprehensive collection of high-performance video processing and utility nodes for ComfyUI, designed for professional workflows and optimized for memory efficiency.
+A comprehensive collection of high-performance video processing and utility nodes for ComfyUI, designed for efficient workflows and optimized for memory usage.
 
 ## Features
 
 - **Advanced Video Processing**: Color correction, frame interpolation, upscaling, and segmentation
 - **Smart Face Detection**: MediaPipe-powered face analysis with eye state detection
 - **Memory Optimized**: Stream processing for handling large videos without VRAM limits
-- **Production Ready**: Professional error handling, debug controls, and clean interfaces
+- **Production Ready**: Robust error handling, debug controls, and clean interfaces
 - **Metadata Support**: Optional metadata preservation in all video outputs
 
 ## Installation
@@ -31,6 +30,8 @@ brew install ffmpeg
 
 # Ubuntu/Debian
 sudo apt install ffmpeg
+
+# Or download directly from https://ffmpeg.org/download.html
 ```
 
 3. Python dependencies will auto-install on first load. If needed, manually install:
@@ -43,7 +44,7 @@ pip install -r requirements.txt
 
 - Python 3.8+
 - PyTorch 
-- **FFmpeg** (system installation required for video processing)
+- **FFmpeg** (system installation required - download from https://ffmpeg.org/download.html)
 - OpenCV (`cv2`)
 - MediaPipe (for face detection)
 - SciPy (for color correction)
@@ -59,12 +60,13 @@ Advanced color matching using multiple algorithms (hm-mvgd-hm, hm-mkl-hm, mkl, m
 - **Input**: Images, Reference Video, Method, Strength, Optional Anchor Frame
 - **Output**: Color corrected images
 - **Features**: KJNodes-compatible algorithms, multi-segment workflow support, adaptive processing detection
+- **Inspired by**: KJNodes color matching implementation
 
 #### **Video Segment Saver** 
-Professional video segment export with execution tracking.
+Video segment export with execution tracking and codec selection.
 - **Input**: Images, segment info, format settings
 - **Output**: Video file path, metadata
-- **Features**: Smart caching, multiple formats (MP4, WebM, MOV, AVI)
+- **Features**: Smart caching, multiple formats (MP4, WebM, MOV, AVI), metadata control
 
 #### **Video Segment Combiner**
 Automatic segment discovery and combination by execution ID.
@@ -73,7 +75,7 @@ Automatic segment discovery and combination by execution ID.
 - **Features**: Auto-discovery, consistency validation, FFmpeg optimization
 
 #### **Video Saver**
-High-quality video export with professional encoding options.
+High-quality video export with encoding options.
 - **Input**: Images, FPS, format, codec
 - **Output**: Video file path
 - **Features**: H264/H265/VP9/ProRes support, custom directories
@@ -83,18 +85,21 @@ Memory-efficient stream upscaling without VRAM limits.
 - **Input**: Video file path, upscale model, factor
 - **Output**: Upscaled video path, preview
 - **Features**: Frame streaming, progress tracking, multiple tile sizes
+- **Inspired by**: ComfyUI-Frame-Interpolation
 
 #### **Video Frame Interpolation**
 RIFE-powered frame interpolation for smooth motion.
 - **Input**: Video file path, RIFE model, interpolation factor
 - **Output**: Interpolated video, preview
 - **Features**: Multiple RIFE versions, memory management, streaming processing
+- **Inspired by**: ComfyUI-Frame-Interpolation and RIFE
 
 #### **Video Preview**
 Generate preview frames from video tensors.
 - **Input**: Images
 - **Output**: Preview image grid
 - **Features**: Automatic grid layout, quality optimization
+- **Inspired by**: ComfyUI-VideoHelperSuite
 
 ### Utility Nodes
 
@@ -103,6 +108,7 @@ Advanced face detection with eye state analysis.
 - **Input**: Images, detection settings, thresholds  
 - **Output**: Best face frame, frames from end, metadata, debug overlay
 - **Features**: MediaPipe integration, eye aspect ratio analysis, frontal face detection
+- **Inspired by**: MediaPipe face detection algorithms
 
 #### **Batch Trimmer**
 Remove frames from end of image batches.
@@ -186,7 +192,7 @@ Load Images → Face Frame Detector → Video Color Correction
 
 ## Error Handling
 
-Professional error handling with:
+Robust error handling with:
 - Input validation and safe defaults
 - Graceful degradation when dependencies missing
 - Clear error messages with resolution steps
@@ -200,13 +206,15 @@ Professional error handling with:
 ```bash
 # Windows
 choco install ffmpeg
-# or download from https://ffmpeg.org/download.html
 
 # macOS  
 brew install ffmpeg
 
 # Linux
 sudo apt install ffmpeg
+
+# Direct download for all platforms
+# https://ffmpeg.org/download.html
 ```
 
 **MediaPipe not found**
@@ -254,7 +262,3 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## Support
 
 For issues and feature requests, please use the GitHub issue tracker.
-=======
-# DaxNodes
-Purpose built custom nodes for various use cases.
->>>>>>> 6e7053f529ae314e0d99cb9092da874f0ee61f5b
