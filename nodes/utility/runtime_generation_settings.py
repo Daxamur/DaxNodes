@@ -21,6 +21,12 @@ class DaxRuntimeGenerationLengthSet:
                     "step": 1,
                     "display": "slider"
                 }),
+                "total_length_override": ("INT", {
+                    "default": 0,
+                    "min": 0,
+                    "max": 9999,
+                    "step": 1
+                }),
             }
         }
     
@@ -29,16 +35,25 @@ class DaxRuntimeGenerationLengthSet:
     FUNCTION = "set_generation_length"
     CATEGORY = "Utilities"
     
-    def set_generation_length(self, segment_length, total_length):
-        # Force total_length to be divisible by segment_length
-        if total_length % segment_length != 0:
-            # Round UP to next multiple
-            loops = (total_length + segment_length - 1) // segment_length
+    def set_generation_length(self, segment_length, total_length, total_length_override=0):
+        # Use override if provided (non-zero)
+        if total_length_override > 0:
+            # Round DOWN to nearest multiple of segment_length
+            loops = total_length_override // segment_length
+            if loops == 0:
+                loops = 1  # Minimum 1 loop
             adjusted_total = loops * segment_length
-            debug_print(f"Adjusted {total_length} → {adjusted_total} (divisible by {segment_length})")
+            debug_print(f"Override: {total_length_override} → {adjusted_total} (rounded down to {segment_length} multiple)")
         else:
-            loops = total_length // segment_length
-            adjusted_total = total_length
+            # Normal logic: force total_length to be divisible by segment_length
+            if total_length % segment_length != 0:
+                # Round UP to next multiple
+                loops = (total_length + segment_length - 1) // segment_length
+                adjusted_total = loops * segment_length
+                debug_print(f"Adjusted {total_length} → {adjusted_total} (divisible by {segment_length})")
+            else:
+                loops = total_length // segment_length
+                adjusted_total = total_length
         
         debug_print(f"segment={segment_length}, total={adjusted_total}, loops={loops}")
         
@@ -62,12 +77,14 @@ app.registerExtension({
             
             const segmentWidget = this.widgets.find(w => w.name === "segment_length");
             const totalWidget = this.widgets.find(w => w.name === "total_length");
+            const overrideWidget = this.widgets.find(w => w.name === "total_length_override");
             
-            if (!segmentWidget || !totalWidget) return;
+            if (!segmentWidget || !totalWidget || !overrideWidget) return;
             
             // Store original callbacks
             const originalSegmentCallback = segmentWidget.callback;
             const originalTotalCallback = totalWidget.callback;
+            const originalOverrideCallback = overrideWidget.callback;
             
             // Store current segment length for total widget callback
             let currentSegmentLength = parseInt(segmentWidget.value) || 1;
@@ -107,6 +124,14 @@ app.registerExtension({
                 
                 totalWidget.value = newTotal;
                 
+                // Update override widget to respect new step
+                const currentOverride = overrideWidget.value;
+                if (currentOverride > 0) {
+                    const newOverride = enforceStep(currentOverride, segmentLength);
+                    console.log("[DaxNodes] Enforcing override:", currentOverride, "->", newOverride, "step:", segmentLength);
+                    overrideWidget.value = newOverride;
+                }
+                
                 // Call original callback with integer value
                 if (originalSegmentCallback) {
                     originalSegmentCallback.call(this, segmentLength);
@@ -142,6 +167,36 @@ app.registerExtension({
                 // Call original callback with corrected value
                 if (originalTotalCallback) {
                     originalTotalCallback.call(this, value);
+                }
+            };
+            
+            // Override total widget callback to enforce step
+            overrideWidget.callback = function(value) {
+                console.log("[DaxNodes] Override widget changed:", value, "currentSegmentLength:", currentSegmentLength);
+                
+                if (value > 0) {
+                    const enforcedValue = enforceStep(value, currentSegmentLength);
+                    
+                    console.log("[DaxNodes] Enforced override value:", enforcedValue, "original:", value);
+                    
+                    if (enforcedValue !== value) {
+                        console.log("[DaxNodes] CORRECTING override - changing", value, "to", enforcedValue, "step:", currentSegmentLength);
+                        overrideWidget.value = enforcedValue;
+                        
+                        if (overrideWidget.inputEl) {
+                            overrideWidget.inputEl.value = enforcedValue;
+                        }
+                        if (overrideWidget.element) {
+                            overrideWidget.element.value = enforcedValue;
+                        }
+                        
+                        value = enforcedValue;
+                    }
+                }
+                
+                // Call original callback
+                if (originalOverrideCallback) {
+                    originalOverrideCallback.call(this, value);
                 }
             };
             

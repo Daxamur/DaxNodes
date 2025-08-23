@@ -481,7 +481,7 @@ class DaxVideoStreamRIFEVFI:
     
     def create_rife_model(self, ckpt_name):
         """Create proper RIFE model architecture using ComfyUI-Frame-Interpolation's approach"""
-        # Use ComfyUI-Frame-Interpolation's exact architecture
+        # Load RIFE model architecture
         try:
             # Try to import from ComfyUI-Frame-Interpolation if available
             import sys
@@ -512,7 +512,7 @@ class DaxVideoStreamRIFEVFI:
     
     def get_rife_version(self, ckpt_name):
         """Extract RIFE version from checkpoint name using ComfyUI-Frame-Interpolation mapping"""
-        # Use ComfyUI-Frame-Interpolation's exact version mapping
+        # Map model version from filename
         ckpt_name_ver_dict = {
             "rife40.pth": "4.0",
             "rife41.pth": "4.0", 
@@ -815,7 +815,7 @@ class DaxVideoStreamRIFEVFI:
                         if hasattr(self.rife_model, 'set_fast_mode'):
                             self.rife_model.set_fast_mode(fast_mode)
                         
-                        # Use ComfyUI-Frame-Interpolation's exact calling pattern
+                        # Generate intermediate frame
                         try:
                             # ComfyUI-FI approach: model(frame_0, frame_1, timestep, scale_list, fastmode, ensemble)
                             scale_list = [8 / scale_factor, 4 / scale_factor, 2 / scale_factor, 1 / scale_factor]

@@ -93,11 +93,11 @@ app.registerExtension({
                     }
                 }
                 
-                // Main container element (VHS pattern)
+                // Main container element
                 const element = document.createElement("div");
                 const previewNode = this;
                 
-                // Create widget with exact VHS parameters
+                // Create video preview widget
                 const previewWidget = this.addDOMWidget(`video_preview_${nodeId}`, "preview", element, {
                     serialize: false,
                     hideOnZoom: false,
@@ -118,7 +118,7 @@ app.registerExtension({
                     return [width, 200]; // Default height before video loads
                 };
                 
-                // Event delegation (VHS pattern)
+                // Event delegation
                 element.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
                     return app.canvas._mousedown_callback(e);
@@ -143,13 +143,13 @@ app.registerExtension({
                 // Widget value setup
                 previewWidget.value = {hidden: false, paused: false, params: {}};
                 
-                // Parent container (VHS pattern)
+                // Parent container
                 previewWidget.parentEl = document.createElement("div");
                 previewWidget.parentEl.className = "dax_preview";
                 previewWidget.parentEl.style['width'] = "100%";
                 element.appendChild(previewWidget.parentEl);
                 
-                // Video element (VHS pattern)
+                // Video element
                 previewWidget.videoEl = document.createElement("video");
                 previewWidget.videoEl.controls = false;
                 previewWidget.videoEl.loop = true;

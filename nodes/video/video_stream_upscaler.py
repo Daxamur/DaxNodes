@@ -455,7 +455,7 @@ class DaxVideoStreamUpscaler:
         debug_print(f"Debug: Input tensor shape: {image_tensor.shape}, dtype: {image_tensor.dtype}")
         debug_print(f"Debug: Input range: min={image_tensor.min():.3f}, max={image_tensor.max():.3f}")
         
-        # Use exact ComfyRoll upscaling function
+        # Apply upscaling to frame
         device = model_management.get_torch_device()
         upscale_model.to(device)
         in_img = image_tensor.movedim(-1, -3).to(device)  # BHWC->BCHW

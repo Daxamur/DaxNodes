@@ -122,7 +122,7 @@ class DaxVideoColorCorrect:
         return is_processed, adaptive_strength
     
     def kjnodes_color_match_single(self, source, target, method, strength):
-        """KJNodes exact color matching implementation for single frame"""
+        """Color matching implementation for single frame"""
         if not HAS_COLOR_MATCHER:
             # Fallback to simple mean matching if color-matcher not available
             source_mean = np.mean(source, axis=(0, 1))

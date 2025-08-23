@@ -35,7 +35,7 @@ If you already have ComfyUI-Frame-Interpolation installed, our RIFE node will au
 ## Notes
 
 - **Auto-detects ComfyUI-Frame-Interpolation models** - no need to duplicate downloads
-- Uses exact same download mechanism as established ComfyUI-Frame-Interpolation extension
+- Uses same download mechanism as ComfyUI-Frame-Interpolation extension
 - Auto-download happens on first node execution
 - Enhanced linear interpolation fallback if download fails
 - Models are loaded on-demand and cached for performance

@@ -60,7 +60,7 @@ Advanced color matching using multiple algorithms (hm-mvgd-hm, hm-mkl-hm, mkl, m
 - **Input**: Images, Reference Video, Method, Strength, Optional Anchor Frame
 - **Output**: Color corrected images
 - **Features**: KJNodes-compatible algorithms, multi-segment workflow support, adaptive processing detection
-- **Inspired by**: KJNodes color matching implementation
+- **Inspired by**: KJNodes
 
 #### **Video Segment Saver** 
 Video segment export with execution tracking and codec selection.
@@ -92,7 +92,7 @@ RIFE-powered frame interpolation for smooth motion.
 - **Input**: Video file path, RIFE model, interpolation factor
 - **Output**: Interpolated video, preview
 - **Features**: Multiple RIFE versions, memory management, streaming processing
-- **Inspired by**: ComfyUI-Frame-Interpolation and RIFE
+- **Inspired by**: ComfyUI-Frame-Interpolation
 
 #### **Video Preview**
 Generate preview frames from video tensors.
@@ -108,7 +108,7 @@ Advanced face detection with eye state analysis.
 - **Input**: Images, detection settings, thresholds  
 - **Output**: Best face frame, frames from end, metadata, debug overlay
 - **Features**: MediaPipe integration, eye aspect ratio analysis, frontal face detection
-- **Inspired by**: MediaPipe face detection algorithms
+- **Inspired by**: MediaPipe
 
 #### **Batch Trimmer**
 Remove frames from end of image batches.

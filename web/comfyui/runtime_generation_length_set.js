@@ -14,12 +14,14 @@ app.registerExtension({
             
             const segmentWidget = this.widgets.find(w => w.name === "segment_length");
             const totalWidget = this.widgets.find(w => w.name === "total_length");
+            const overrideWidget = this.widgets.find(w => w.name === "total_length_override");
             
-            if (!segmentWidget || !totalWidget) return;
+            if (!segmentWidget || !totalWidget || !overrideWidget) return;
             
             // Store original callbacks
             const originalSegmentCallback = segmentWidget.callback;
             const originalTotalCallback = totalWidget.callback;
+            const originalOverrideCallback = overrideWidget.callback;
             
             // Store current segment length for total widget callback
             let currentSegmentLength = parseInt(segmentWidget.value) || 1;
@@ -59,6 +61,14 @@ app.registerExtension({
                 
                 totalWidget.value = newTotal;
                 
+                // Update override widget to respect new step
+                const currentOverride = overrideWidget.value;
+                if (currentOverride > 0) {
+                    const newOverride = enforceStep(currentOverride, segmentLength);
+                    console.log("[DaxNodes] Enforcing override:", currentOverride, "->", newOverride, "step:", segmentLength);
+                    overrideWidget.value = newOverride;
+                }
+                
                 // Call original callback with integer value
                 if (originalSegmentCallback) {
                     originalSegmentCallback.call(this, segmentLength);
@@ -94,6 +104,36 @@ app.registerExtension({
                 // Call original callback with corrected value
                 if (originalTotalCallback) {
                     originalTotalCallback.call(this, value);
+                }
+            };
+            
+            // Override total widget callback to enforce step
+            overrideWidget.callback = function(value) {
+                console.log("[DaxNodes] Override widget changed:", value, "currentSegmentLength:", currentSegmentLength);
+                
+                if (value > 0) {
+                    const enforcedValue = enforceStep(value, currentSegmentLength);
+                    
+                    console.log("[DaxNodes] Enforced override value:", enforcedValue, "original:", value);
+                    
+                    if (enforcedValue !== value) {
+                        console.log("[DaxNodes] CORRECTING override - changing", value, "to", enforcedValue, "step:", currentSegmentLength);
+                        overrideWidget.value = enforcedValue;
+                        
+                        if (overrideWidget.inputEl) {
+                            overrideWidget.inputEl.value = enforcedValue;
+                        }
+                        if (overrideWidget.element) {
+                            overrideWidget.element.value = enforcedValue;
+                        }
+                        
+                        value = enforcedValue;
+                    }
+                }
+                
+                // Call original callback
+                if (originalOverrideCallback) {
+                    originalOverrideCallback.call(this, value);
                 }
             };
             

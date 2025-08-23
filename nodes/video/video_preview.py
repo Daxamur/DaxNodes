@@ -97,7 +97,7 @@ class VideoPreview:
         except Exception as e:
             debug_print(f"Could not detect frame rate, using default: {e}")
         
-        # Return video for display - use exact VideoHelperSuite structure
+        # Return video for display
         result = {
             "filename": base_filename,  # Just the filename without subdirectory
             "subfolder": subfolder,  # Subdirectory path (if any)
