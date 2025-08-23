@@ -1,0 +1,84 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Environments
+.env
+.venv
+env/
+venv/
+
+# IDE
+.idea/
+.vscode/
+
+# ComfyUI specific
+models/*.pth
+models/*.safetensors
+models/*.ckpt
+models/*.pkl
+models/*.pt
+models/*.bin
+temp/
+.tmp/
+output/
+input/
+
+# DaxNodes specific
+web/comfyui/*.js.backup
+segment_state_*.json
+temp_frames/
+temp_input_frames/
+temp_upscaled_frames/
+
+# Keep model directory structure
+!models/rife/README.md
+!models/*/README.md
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Session/Development files
+*session*.txt
+*continuation*.txt
+NAMING_SCHEME.md
+TODO.md
+NOTES.md
+
+# Backup files
+*.backup
+*.bak
+*~

@@ -1,0 +1,2 @@
+# This file ensures the rife directory is tracked by git
+# RIFE models (.pth) will be auto-downloaded on first use
