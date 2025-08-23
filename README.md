@@ -1,6 +1,6 @@
 # DaxNodes - ComfyUI Node Pack
 
-A comprehensive collection of high-performance video processing and utility nodes for ComfyUI, designed for efficient workflows and optimized for memory usage.
+A comprehensive collection of high-performance video processing and utility nodes for ComfyUI, designed for long looping video generation workflows and optimized for memory usage.
 
 ## Features
 
@@ -20,7 +20,7 @@ cd ComfyUI/custom_nodes
 git clone https://github.com/Daxamur/DaxNodes.git
 ```
 
-2. Install FFmpeg on your system:
+2. Install FFmpeg on your system (you probably already have this):
 ```bash
 # Windows (using chocolatey)
 choco install ffmpeg
