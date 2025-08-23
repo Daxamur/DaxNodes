@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # DaxNodes - Professional ComfyUI Node Pack
 
 A comprehensive collection of high-performance video processing and utility nodes for ComfyUI, designed for professional workflows and optimized for memory efficiency.
@@ -253,3 +254,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## Support
 
 For issues and feature requests, please use the GitHub issue tracker.
+=======
+# DaxNodes
+Purpose built custom nodes for various use cases.
+>>>>>>> 6e7053f529ae314e0d99cb9092da874f0ee61f5b

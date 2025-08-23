@@ -1,6 +1,10 @@
 MIT License
 
+<<<<<<< HEAD
 Copyright (c) 2025 DaxNodes
+=======
+Copyright (c) 2025 Daxamur
+>>>>>>> 6e7053f529ae314e0d99cb9092da874f0ee61f5b
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,6 +23,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+<<<<<<< HEAD
 
 ## Third-Party Acknowledgments
 
@@ -49,3 +54,5 @@ This software includes components inspired by or derived from the following proj
 - **Usage**: Face detection and landmark analysis for face frame detection
 
 All third-party components retain their original licenses and copyrights.
+=======
+>>>>>>> 6e7053f529ae314e0d99cb9092da874f0ee61f5b
