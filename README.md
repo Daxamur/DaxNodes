@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # DaxNodes - Professional ComfyUI Node Pack
 
 A comprehensive collection of high-performance video processing and utility nodes for ComfyUI, designed for professional workflows and optimized for memory efficiency.
