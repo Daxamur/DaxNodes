@@ -6,7 +6,7 @@ Memory-efficient sliding window implementation for infinite video processing
 
 Credits:
 - RIFE algorithm: Huang et al., ECCV 2022
-- Auto-download approach inspired by ComfyUI-Frame-Interpolation (MIT License) by Fannovel16
+- Auto-download for missing models
 - Model repositories: styler00dollar, hzwer
 
 Original RIFE Citation:
@@ -350,34 +350,33 @@ class DaxVideoStreamRIFEVFI:
         model_path = None
         current_dir = os.path.dirname(os.path.abspath(__file__))
         
-        # Handle models marked as from ComfyUI-Frame-Interpolation
-        if ckpt_name.startswith("[ComfyUI-FI] "):
-            actual_model_name = ckpt_name.replace("[ComfyUI-FI] ", "")
-            frame_interp_path = os.path.join(folder_paths.base_path, "custom_nodes", "comfyui-frame-interpolation", "ckpts", "rife", actual_model_name)
-            if os.path.exists(frame_interp_path):
-                model_path = frame_interp_path
+        # Handle prefix mismatches - try both prefixed and non-prefixed versions
+        actual_model_name = ckpt_name.replace("[ComfyUI-FI] ", "") if ckpt_name.startswith("[ComfyUI-FI] ") else ckpt_name
+        
+        # Try all possible locations for both prefixed and non-prefixed names
+        possible_paths = [
+            # DaxNodes locations (highest priority)
+            os.path.join(current_dir, "models", "rife", actual_model_name),
+            os.path.join(current_dir, "rife_models", actual_model_name),
+            # ComfyUI-Frame-Interpolation location
+            os.path.join(folder_paths.base_path, "custom_nodes", "comfyui-frame-interpolation", "ckpts", "rife", actual_model_name),
+            # ComfyUI standard locations
+            os.path.join(folder_paths.models_dir, "rife", actual_model_name),
+            os.path.join(folder_paths.models_dir, "vfi", "rife", actual_model_name),
+            os.path.join(folder_paths.models_dir, "checkpoints", "rife", actual_model_name),
+            os.path.join("./models/rife", actual_model_name),
+            os.path.join("./ckpts/rife", actual_model_name)
+        ]
+        
+        for path in possible_paths:
+            if os.path.exists(path):
+                model_path = path
                 ckpt_name = actual_model_name  # Use actual name for loading
-                debug_print(f"Using RIFE model from ComfyUI-Frame-Interpolation: {model_path}")
-        else:
-            # Check our directories and standard locations
-            possible_paths = [
-                os.path.join(current_dir, "models", "rife", ckpt_name),  # DaxNodes/models/rife (FIRST)
-                os.path.join(current_dir, "rife_models", ckpt_name),     # DaxNodes/rife_models
-                os.path.join(folder_paths.models_dir, "rife", ckpt_name), # ComfyUI/models/rife
-                os.path.join(folder_paths.base_path, "custom_nodes", "comfyui-frame-interpolation", "ckpts", "rife", ckpt_name), # ComfyUI-Frame-Interpolation
-                os.path.join(folder_paths.models_dir, "vfi", "rife", ckpt_name), # Alternative location
-                os.path.join(folder_paths.models_dir, "checkpoints", "rife", ckpt_name),
-                os.path.join("./models/rife", ckpt_name),
-                os.path.join("./ckpts/rife", ckpt_name)
-            ]
-            
-            for path in possible_paths:
-                if os.path.exists(path):
-                    model_path = path
-                    break
+                debug_print(f"Found RIFE model: {model_path}")
+                break
         
         if model_path is None:
-            # Try to auto-download the model like ComfyUI-Frame-Interpolation does
+            # Auto-download if model not found locally
             print(f"RIFE model {ckpt_name} not found locally, attempting auto-download...")
             
             # Create rife model directories if they don't exist
@@ -388,8 +387,7 @@ class DaxVideoStreamRIFEVFI:
             os.makedirs(primary_rife_dir, exist_ok=True)
             os.makedirs(fallback_rife_dir, exist_ok=True)
             
-            # Auto-download implementation inspired by ComfyUI-Frame-Interpolation
-            # Original concept by Fannovel16 under MIT License
+            # Auto-download if not available locally
             download_success = self.attempt_model_download(ckpt_name, primary_rife_dir)
             
             if download_success:
@@ -480,10 +478,10 @@ class DaxVideoStreamRIFEVFI:
             self.current_model_name = ckpt_name
     
     def create_rife_model(self, ckpt_name):
-        """Create proper RIFE model architecture using ComfyUI-Frame-Interpolation's approach"""
+        """Create proper RIFE model architecture"""
         # Load RIFE model architecture
         try:
-            # Try to import from ComfyUI-Frame-Interpolation if available
+            # Try to import existing RIFE models if available
             import sys
             comfy_fi_path = os.path.join(folder_paths.base_path, "custom_nodes", "comfyui-frame-interpolation")
             if comfy_fi_path not in sys.path:
@@ -511,7 +509,7 @@ class DaxVideoStreamRIFEVFI:
                 return RIFEv4('4.0')  # Default to v4.0
     
     def get_rife_version(self, ckpt_name):
-        """Extract RIFE version from checkpoint name using ComfyUI-Frame-Interpolation mapping"""
+        """Extract RIFE version from checkpoint name"""
         # Map model version from filename
         ckpt_name_ver_dict = {
             "rife40.pth": "4.0",

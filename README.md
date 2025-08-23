@@ -203,8 +203,25 @@ Robust error handling with:
 ### Common Issues
 
 **FFmpeg not found**
+
+If you see a `FileNotFoundError ([WinError 2] The system cannot find the file specified.)` from VideoSave or other video-related nodes, FFmpeg is missing or not in your system PATH.
+
+**Setup (Full Version Required):**
+
+1. Download the full FFmpeg build from https://ffmpeg.org/download.html
+2. Extract it to a stable location (e.g., `C:\ffmpeg`)
+3. Add `C:\ffmpeg\bin` to your system PATH:
+   - Open "Edit the system environment variables" → "Environment Variables..."
+   - Under "System variables", select "Path" → "Edit..."
+   - Click "New" and add `C:\ffmpeg\bin`
+   - Save and exit
+4. Restart ComfyUI (and your terminal/command prompt)
+
+After this, everything should work!
+
+**Alternative installations:**
 ```bash
-# Windows
+# Windows (chocolatey)
 choco install ffmpeg
 
 # macOS  
@@ -212,9 +229,6 @@ brew install ffmpeg
 
 # Linux
 sudo apt install ffmpeg
-
-# Direct download for all platforms
-# https://ffmpeg.org/download.html
 ```
 
 **MediaPipe not found**
