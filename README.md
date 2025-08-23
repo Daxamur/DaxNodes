@@ -32,6 +32,8 @@ brew install ffmpeg
 sudo apt install ffmpeg
 ```
 
+OR https://www.ffmpeg.org/download.html
+
 3. Python dependencies will auto-install on first load. If needed, manually install:
 ```bash
 cd DaxNodes
