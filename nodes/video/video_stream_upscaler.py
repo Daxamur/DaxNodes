@@ -24,7 +24,6 @@ import time
 import comfy.utils
 from comfy import model_management
 from ...utils.performance_optimizer import PERF_OPTIMIZER
-from ...utils.debug_utils import debug_print
 from ...utils.metadata_utils import gather_comfyui_metadata, create_metadata_file, cleanup_metadata_file
 
 class DaxVideoStreamUpscaler:
@@ -74,6 +73,10 @@ class DaxVideoStreamUpscaler:
                     "default": True,
                     "tooltip": "Include metadata in output video file"
                 }),
+            },
+            "hidden": {
+                "prompt": "PROMPT",
+                "extra_pnginfo": "EXTRA_PNGINFO",
             }
         }
     
@@ -84,7 +87,7 @@ class DaxVideoStreamUpscaler:
     OUTPUT_NODE = True
     
     def upscale_video(self, video_filepath, upscale_model, upscale_factor, output_prefix, 
-                     format, codec, buffer_size, enable_optimizations=True, output_dir="", save_metadata=True):
+                     format, codec, buffer_size, enable_optimizations=True, output_dir="", save_metadata=True, prompt=None, extra_pnginfo=None):
         
         if not os.path.exists(video_filepath):
             raise ValueError(f"Input video not found: {video_filepath}")
@@ -92,23 +95,17 @@ class DaxVideoStreamUpscaler:
         # Initialize performance optimization
         if enable_optimizations:
             print("Performance-optimized processing enabled")
-            debug_print(PERF_OPTIMIZER.get_system_info_summary())
             optimal_settings = PERF_OPTIMIZER.get_optimal_upscaler_settings(upscale_factor)
             
             # Override buffer_size if auto-detect
             if buffer_size == 0:
                 buffer_size = optimal_settings["batch_size"]
-                debug_print(f"Auto-detected optimal batch size: {buffer_size}")
         else:
-            debug_print("Standard processing mode")
             if buffer_size == 0:
                 buffer_size = 8  # Default fallback
             optimal_settings = {"batch_size": buffer_size, "tile_size": 512, "overlap": 32}
         
         print(f"Processing video: {os.path.basename(video_filepath)}")
-        debug_print(f"Upscale factor: {upscale_factor}x")
-        debug_print(f"Batch size: {buffer_size}")
-        debug_print(f"Performance profile: {PERF_OPTIMIZER.performance_profile}")
         
         # Determine output directory
         if output_dir and output_dir.strip():
@@ -141,9 +138,6 @@ class DaxVideoStreamUpscaler:
         target_width = int(original_width * upscale_factor)
         target_height = int(original_height * upscale_factor)
         
-        debug_print(f"Input: {original_width}x{original_height} @ {fps:.2f} FPS")
-        debug_print(f"Output: {target_width}x{target_height} @ {fps:.2f} FPS")
-        debug_print(f"Total frames: {total_frames}")
         
         # Setup temporary directories under .tmp
         base_output_dir = folder_paths.get_output_directory()
@@ -161,25 +155,20 @@ class DaxVideoStreamUpscaler:
         try:
             # Use direct video frame extraction for better performance
             if enable_optimizations and optimal_settings.get("use_memory_mapping", True):
-                debug_print("Using optimized direct frame processing...")
                 self.process_video_optimized(video_filepath, temp_output_dir, upscale_model, 
                                            buffer_size, optimal_settings)
             else:
-                debug_print("Using standard frame extraction and processing...")
                 # Extract frames from video
-                debug_print("Extracting frames...")
                 self.extract_frames(video_filepath, temp_input_dir)
                 
                 # Process frames with intelligent batching
                 frame_files = sorted([f for f in os.listdir(temp_input_dir) if f.endswith('.png')])
-                debug_print(f"Processing {len(frame_files)} frames with batch size {buffer_size}")
                 
                 self.process_frames_batched(temp_input_dir, temp_output_dir, frame_files, 
                                           upscale_model, buffer_size, optimal_settings)
             
             # Combine frames back to video
-            debug_print("Creating output video...")
-            self.combine_frames_to_video(temp_output_dir, final_output_path, fps, codec, save_metadata)
+            self.combine_frames_to_video(temp_output_dir, final_output_path, fps, codec, save_metadata, prompt, extra_pnginfo)
             
         finally:
             # Cleanup temp directories
@@ -199,7 +188,6 @@ class DaxVideoStreamUpscaler:
         # Get final file info
         file_size = os.path.getsize(final_output_path) / (1024 * 1024)  # MB
         print(f"Upscaled video saved: {os.path.basename(final_output_path)} ({file_size:.2f}MB)")
-        debug_print(f"Full path: {final_output_path}")
         
         return (final_output_path,)
     
@@ -249,16 +237,13 @@ class DaxVideoStreamUpscaler:
             os.path.join(output_dir, "frame_%06d.png")
         ]
         
-        debug_print(f"Frame extraction cmd: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
-            debug_print(f"FFmpeg extraction stderr: {result.stderr}")
             raise RuntimeError(f"Frame extraction failed: {result.stderr}")
     
     def upscale_with_async_buffering(self, frame_files, temp_input_dir, temp_output_dir, 
                                    buffer_size, upscale_model, upscale_factor, device):
         """Async double-buffering for 2-3x faster processing"""
-        debug_print(f"Using async double-buffering with buffer size: {buffer_size}")
         
         # Create CUDA streams for async processing
         streams = []
@@ -268,29 +253,23 @@ class DaxVideoStreamUpscaler:
             streams = [main_stream, load_stream]
         
         # Handle ComfyUI model device management BEFORE starting threads
-        debug_print(f"Setting up model on device: {device}")
         model_device = device
         actual_model = None
         
         try:
             if hasattr(upscale_model, 'model'):
-                debug_print("Found ComfyUI model wrapper")
                 # ComfyUI model wrapper - get actual model reference (don't reassign)
                 actual_model = upscale_model.model
                 # Move the actual model to device
                 actual_model.to(device)
                 model_device = next(actual_model.parameters()).device
-                debug_print(f"ComfyUI model moved to {model_device}")
             else:
-                debug_print("Found direct PyTorch model")
                 # Direct PyTorch model
                 upscale_model = upscale_model.to(device)
                 model_device = next(upscale_model.parameters()).device
-                debug_print(f"Direct model moved to {model_device}")
                 
         except RuntimeError as e:
             if device.type == 'cuda':
-                debug_print(f"Failed to move model to CUDA, falling back to CPU: {e}")
                 model_device = torch.device('cpu')
                 if hasattr(upscale_model, 'model'):
                     actual_model = upscale_model.model
@@ -301,7 +280,6 @@ class DaxVideoStreamUpscaler:
                 raise
         
         # Update device to match actual model device
-        debug_print(f"Final device: {model_device}")
         device = model_device
         
         # Setup queues for pipeline parallelism
@@ -314,13 +292,11 @@ class DaxVideoStreamUpscaler:
         def batch_loader():
             """Background thread that loads batches into pinned memory"""
             try:
-                debug_print(f"Starting batch loader for {total_batches} batches...")
                 for batch_idx in range(total_batches):
                     batch_start = batch_idx * buffer_size
                     batch_end = min(batch_start + buffer_size, len(frame_files))
                     batch_files = frame_files[batch_start:batch_end]
                     
-                    debug_print(f"Loading batch {batch_idx+1}/{total_batches} ({len(batch_files)} frames)...")
                     
                     # Load batch tensors with pinned memory for faster GPU transfer
                     batch_tensors = []
@@ -349,15 +325,11 @@ class DaxVideoStreamUpscaler:
                     
                     # Stack into batch tensor
                     batch_tensor = torch.stack(batch_tensors)
-                    debug_print(f"Batch {batch_idx+1} loaded, shape: {batch_tensor.shape}")
                     
                     # Put loaded batch in queue (blocks if queue is full)
-                    debug_print(f"Queuing batch {batch_idx+1}...")
                     load_queue.put((batch_idx, batch_tensor, output_paths))
-                    debug_print(f"Batch {batch_idx+1} queued successfully")
                     
                 # Signal end of batches
-                debug_print("All batches loaded, sending end signal...")
                 load_queue.put(None)
                 
             except Exception as e:
@@ -371,21 +343,17 @@ class DaxVideoStreamUpscaler:
         try:
             
             # Process batches as they become available
-            debug_print("Starting processing loop...")
             while True:
                 # Check for loader errors
                 if not error_queue.empty():
                     raise error_queue.get()
                 
                 # Get next loaded batch (blocks until available)
-                debug_print("Waiting for next batch...")
                 batch_data = load_queue.get()
                 if batch_data is None:  # End signal
-                    debug_print("Received end signal, finishing...")
                     break
                 
                 batch_idx, batch_tensor, output_paths = batch_data
-                debug_print(f"Processing batch {batch_idx+1} with {len(output_paths)} frames...")
                 
                 # Transfer to GPU and process with proper stream handling
                 if device.type == 'cuda' and len(streams) > 0:
@@ -423,7 +391,6 @@ class DaxVideoStreamUpscaler:
                 processed_count += len(output_paths)
                 
                 # Progress update
-                debug_print(f"Processed batch {batch_idx+1}/{total_batches}: {processed_count}/{len(frame_files)} frames")
                 
                 # Clear GPU memory periodically
                 if device.type == 'cuda':
@@ -437,7 +404,6 @@ class DaxVideoStreamUpscaler:
     
     def upscale_single_frame(self, input_path, output_path, upscale_model):
         """Upscale single frame using ComfyUI model pipeline"""
-        debug_print(f"UPSCALE_SINGLE_FRAME: Starting for {input_path}")
         from PIL import Image as PILImage
         import numpy as np
         
@@ -446,22 +412,13 @@ class DaxVideoStreamUpscaler:
         image_np = np.array(pil_image).astype(np.float32) / 255.0
         image_tensor = torch.from_numpy(image_np).unsqueeze(0)  # HWC->BHWC
         
-        # Debug: Save extracted frame to output for manual testing with native ComfyUI
-        if "frame_000001.png" in input_path:
-            debug_input_path = input_path.replace("temp_input_frames", "").replace("frame_000001.png", "DEBUG_extracted_frame001.png")
-            # Save the PIL image exactly as ComfyUI would see it
-            pil_image.save(debug_input_path)
-            debug_print(f"DEBUG: Saved extracted frame to {debug_input_path} for manual ComfyUI testing")
         
-        debug_print(f"Debug: Input tensor shape: {image_tensor.shape}, dtype: {image_tensor.dtype}")
-        debug_print(f"Debug: Input range: min={image_tensor.min():.3f}, max={image_tensor.max():.3f}")
         
         # Apply upscaling to frame
         device = model_management.get_torch_device()
         upscale_model.to(device)
         in_img = image_tensor.movedim(-1, -3).to(device)  # BHWC->BCHW
         
-        debug_print(f"Debug: Model input shape: {in_img.shape}, device: {in_img.device}")
         
         # Use ComfyUI's tiled_scale with default settings
         tile = 512
@@ -483,8 +440,6 @@ class DaxVideoStreamUpscaler:
         upscaled_tensor = torch.clamp(s.movedim(-3, -1), min=0, max=1.0)  # BCHW->BHWC
         upscale_model.cpu()
         
-        debug_print(f"Debug: Output tensor shape: {upscaled_tensor.shape}, dtype: {upscaled_tensor.dtype}")
-        debug_print(f"Debug: Output range: min={upscaled_tensor.min():.3f}, max={upscaled_tensor.max():.3f}")
         
         # Convert to numpy and save
         upscaled_tensor = upscaled_tensor.squeeze(0)  # Remove batch dimension -> HWC
@@ -493,38 +448,26 @@ class DaxVideoStreamUpscaler:
         # Convert to uint8 with proper rounding
         upscaled_np = np.clip(np.round(upscaled_np * 255), 0, 255).astype(np.uint8)
         
-        debug_print(f"Debug: Final RGB shape: {upscaled_np.shape}, dtype: {upscaled_np.dtype}")
-        debug_print(f"Debug: RGB range: min={upscaled_np.min()}, max={upscaled_np.max()}")
         
         # Save directly as RGB using PIL instead of BGR conversion
         upscaled_pil = PILImage.fromarray(upscaled_np, mode='RGB')
         upscaled_pil.save(output_path, 'PNG', compress_level=0)
         
-        # Debug: Save first frame to output directory for comparison
-        if "frame_000001.png" in output_path:
-            debug_path = output_path.replace("temp_upscaled_frames", "").replace("frame_000001.png", "DEBUG_upscaled_frame001.png")
-            upscaled_pil.save(debug_path, 'PNG', compress_level=0)
-            debug_print(f"DEBUG: Saved first upscaled frame to {debug_path} for comparison")
     
     def upscale_frame_batch(self, input_dir, output_dir, batch_files, upscale_model, device):
         """Upscale a batch of frames for better performance"""
-        debug_print(f"upscale_frame_batch called with {len(batch_files)} files")
         batch_tensors = []
         output_paths = []
         
         # Move model to correct device (with fallback to CPU)
-        debug_print(f"Moving model to device: {device}")
         try:
             if hasattr(upscale_model, 'model'):
                 actual_model = upscale_model.model
                 actual_model = actual_model.to(device)
-                debug_print("Model moved to device (ComfyUI descriptor)")
             else:
                 upscale_model = upscale_model.to(device)
-                debug_print("Model moved to device (direct model)")
         except RuntimeError as e:
             if device.type == 'cuda':
-                debug_print(f"Failed to move model to CUDA, falling back to CPU: {e}")
                 device = torch.device('cpu')
                 if hasattr(upscale_model, 'model'):
                     actual_model = upscale_model.model
@@ -561,33 +504,22 @@ class DaxVideoStreamUpscaler:
         # Save each frame
         for i, output_path in enumerate(output_paths):
             upscaled_tensor = upscaled_batch[i]
-            debug_print(f"Saving frame {i}: tensor shape {upscaled_tensor.shape}, dtype {upscaled_tensor.dtype}")
-            debug_print(f"Output path: {output_path}")
             
             upscaled_np = upscaled_tensor.permute(1, 2, 0).cpu().numpy()  # CHW to HWC
-            debug_print(f"After permute: shape {upscaled_np.shape}, dtype {upscaled_np.dtype}")
-            debug_print(f"Value range: min={upscaled_np.min():.3f}, max={upscaled_np.max():.3f}")
             
             upscaled_np = np.clip(np.round(upscaled_np * 255), 0, 255).astype(np.uint8)
-            debug_print(f"After uint8 conversion: shape {upscaled_np.shape}, dtype {upscaled_np.dtype}")
-            debug_print(f"Value range: min={upscaled_np.min()}, max={upscaled_np.max()}")
             
             upscaled_bgr = cv2.cvtColor(upscaled_np, cv2.COLOR_RGB2BGR)
             success = cv2.imwrite(output_path, upscaled_bgr)
-            debug_print(f"cv2.imwrite success: {success}")
             
             # Verify file was written
             if os.path.exists(output_path):
                 file_size = os.path.getsize(output_path)
-                debug_print(f"File written: {file_size} bytes")
             else:
                 print("ERROR: File not written!")
                 
-            # Only print details for first frame to avoid spam
-            if i == 0:
-                debug_print(f"First frame details: {os.path.basename(output_path)}")
 
-    def combine_frames_to_video(self, frames_dir, output_path, fps, codec, save_metadata=True):
+    def combine_frames_to_video(self, frames_dir, output_path, fps, codec, save_metadata=True, prompt=None, extra_pnginfo=None):
         """Combine frames back to video using ffmpeg"""
         codec_settings = {
             "h264": ["-c:v", "libx264", "-preset", "slow"],
@@ -599,7 +531,6 @@ class DaxVideoStreamUpscaler:
         # Check if frames exist
         frame_pattern = os.path.join(frames_dir, "frame_%06d.png")
         frame_files = sorted([f for f in os.listdir(frames_dir) if f.endswith('.png')])
-        debug_print(f"Found {len(frame_files)} upscaled frames")
         if len(frame_files) == 0:
             raise RuntimeError(f"No upscaled frames found in {frames_dir}")
         
@@ -610,10 +541,6 @@ class DaxVideoStreamUpscaler:
         test_frame = cv2.imread(first_frame_path)
         if test_frame is not None:
             h, w = test_frame.shape[:2]
-            debug_print(f"Upscaled frame dimensions: {w}x{h}")
-            debug_print(f"First frame: {frame_files[0]}")
-            debug_print(f"Last frame: {frame_files[-1]}")
-            debug_print(f"Expected pattern: frame_000001.png to frame_{len(frame_files):06d}.png")
             
             # Check if frame naming matches expected pattern
             expected_first = "frame_000001.png"
@@ -642,26 +569,31 @@ class DaxVideoStreamUpscaler:
         # Gather metadata if saving
         metadata_file_path = None
         if save_metadata:
-            metadata = gather_comfyui_metadata("DaxNodes StreamUpscaler")
-            if metadata:
-                metadata_file_path = create_metadata_file(metadata)
+            video_metadata = gather_comfyui_metadata("DaxNodes StreamUpscaler", prompt, extra_pnginfo)
+            if video_metadata:
+                metadata_file_path = create_metadata_file(video_metadata)
         
-        # Handle metadata in FFmpeg command
+        # For frame inputs, use two-pass approach like segment combiner
         if metadata_file_path:
-            cmd.extend(["-i", metadata_file_path, "-map", "0", "-map_metadata", "1"])
-        elif not save_metadata:
-            cmd.extend(["-map_metadata", "-1"])
-        
-        cmd.append(output_path)
-        
-        debug_print(f"Running FFmpeg: {' '.join(cmd)}")
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            debug_print(f"FFmpeg stderr: {result.stderr}")
-            debug_print(f"FFmpeg stdout: {result.stdout}")
-            raise RuntimeError(f"Video creation failed: {result.stderr}")
+            # Insert metadata file as first input, then frames (like VideoSave)
+            # Structure: ["ffmpeg", "-y", "-i", metadata_file, "-framerate", fps, "-i", frames, ...codec args..., "-metadata", "creation_time=now", output]
+            cmd_parts = cmd[:2]  # ["ffmpeg", "-y"]
+            cmd_parts.extend(["-i", metadata_file_path])  # Add metadata input first
+            cmd_parts.extend(cmd[2:])  # Add rest of command
+            cmd_parts.extend(["-metadata", "creation_time=now"])  # Add creation time
+            cmd_parts.append(output_path)
+            
+            result = subprocess.run(cmd_parts, capture_output=True, text=True)
+            if result.returncode != 0:
+                raise RuntimeError(f"Video creation failed: {result.stderr}")
         else:
-            debug_print("FFmpeg success")
+            if not save_metadata:
+                cmd.extend(["-map_metadata", "-1"])
+            cmd.append(output_path)
+            
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                raise RuntimeError(f"Video creation failed: {result.stderr}")
         
         # Clean up metadata file
         cleanup_metadata_file(metadata_file_path)
@@ -687,7 +619,6 @@ class DaxVideoStreamUpscaler:
         tile_size = settings.get("tile_size", 512)
         overlap = settings.get("overlap", 32)
         
-        debug_print(f"Direct video processing: {total_frames} frames, tile size: {tile_size}")
         
         try:
             while True:
@@ -725,11 +656,10 @@ class DaxVideoStreamUpscaler:
                     
                     # Progress update
                     if batch_count % 5 == 0:
-                        debug_print(f"Processed {processed_frames}/{total_frames} frames ({processed_frames/total_frames*100:.1f}%)")
+                        pass
                     
                     # Memory management
                     if PERF_OPTIMIZER.should_reduce_batch_size(batch_size):
-                        debug_print("Memory pressure detected, clearing cache...")
                         if torch.cuda.is_available():
                             torch.cuda.empty_cache()
         finally:
@@ -781,7 +711,7 @@ class DaxVideoStreamUpscaler:
                 
                 # Progress update
                 if (i // batch_size + 1) % 5 == 0:
-                    debug_print(f"Processed {processed_count}/{total_frames} frames")
+                    pass
                 
                 # Adaptive memory management
                 if PERF_OPTIMIZER.should_reduce_batch_size(batch_size):

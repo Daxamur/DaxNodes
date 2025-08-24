@@ -28,7 +28,6 @@ import folder_paths
 import json
 from pathlib import Path
 from ...utils.performance_optimizer import PERF_OPTIMIZER
-from ...utils.debug_utils import debug_print
 from ...utils.metadata_utils import gather_comfyui_metadata, create_metadata_file, cleanup_metadata_file
 
 class DaxVideoStreamRIFEVFI:
@@ -68,18 +67,15 @@ class DaxVideoStreamRIFEVFI:
             frame_interp_rife_dir = os.path.join(base_path, "custom_nodes", "comfyui-frame-interpolation", "ckpts", "rife")
             
             if os.path.exists(frame_interp_rife_dir):
-                debug_print(f"Found ComfyUI-Frame-Interpolation RIFE models at: {frame_interp_rife_dir}")
                 for model_file in os.listdir(frame_interp_rife_dir):
                     if model_file.endswith('.pth') and not model_file.startswith('.') and model_file not in rife_models:
                         rife_models.append(f"[ComfyUI-FI] {model_file}")  # Mark as from Frame-Interpolation
         except Exception as e:
-            debug_print(f"ComfyUI-Frame-Interpolation detection failed: {e}")
             pass  # ComfyUI-Frame-Interpolation not installed or accessible
         
         # If no models found, show standard ComfyUI-Frame-Interpolation models
         if not rife_models:
             rife_models = ["rife47.pth", "rife48.pth", "rife49.pth"]  # Standard models available from established repos
-            debug_print("No RIFE models found. Auto-download will start when node is used.")
         
         return {
             "required": {
@@ -147,6 +143,10 @@ class DaxVideoStreamRIFEVFI:
                     "default": True,
                     "tooltip": "Include metadata in output video file"
                 }),
+            },
+            "hidden": {
+                "prompt": "PROMPT",
+                "extra_pnginfo": "EXTRA_PNGINFO",
             }
         }
     
@@ -164,7 +164,7 @@ class DaxVideoStreamRIFEVFI:
     def interpolate_video(self, video_filepath, ckpt_name, multiplier, fast_mode, ensemble, 
                          scale_factor, output_prefix, format, codec, buffer_size,
                          enable_optimizations=True, output_dir="", 
-                         custom_multiplier_list="", skip_frame_list="", save_metadata=True):
+                         custom_multiplier_list="", skip_frame_list="", save_metadata=True, prompt=None, extra_pnginfo=None):
         
         if not os.path.exists(video_filepath):
             raise ValueError(f"Input video not found: {video_filepath}")
@@ -172,25 +172,17 @@ class DaxVideoStreamRIFEVFI:
         # Initialize performance optimization
         if enable_optimizations:
             print("Performance-optimized processing enabled")
-            debug_print(PERF_OPTIMIZER.get_system_info_summary())
             optimal_settings = PERF_OPTIMIZER.get_optimal_rife_settings(multiplier)
             
             # Override buffer_size if auto-detect
             if buffer_size == 0:
                 buffer_size = optimal_settings["buffer_size"]
-                debug_print(f"Auto-detected optimal buffer size: {buffer_size}")
         else:
-            debug_print("Standard processing mode")
             if buffer_size == 0:
                 buffer_size = 30  # Default fallback
             optimal_settings = {"buffer_size": buffer_size, "cache_size": 10}
         
         print(f"Processing video: {os.path.basename(video_filepath)}")
-        debug_print(f"Model: {ckpt_name}")
-        debug_print(f"Multiplier: {multiplier}x")
-        debug_print(f"Buffer size: {buffer_size}")
-        debug_print(f"Performance profile: {PERF_OPTIMIZER.performance_profile}")
-        debug_print(f"Settings: fast_mode={fast_mode}, ensemble={ensemble}, scale={scale_factor}")
         
         # Parse optional parameters
         multiplier_list = None
@@ -199,14 +191,12 @@ class DaxVideoStreamRIFEVFI:
         if custom_multiplier_list.strip():
             try:
                 multiplier_list = json.loads(custom_multiplier_list)
-                debug_print(f"Using custom multiplier list: {len(multiplier_list)} values")
             except json.JSONDecodeError as e:
                 print(f"Warning: Invalid multiplier list JSON: {e}")
         
         if skip_frame_list.strip():
             try:
                 skip_list = json.loads(skip_frame_list)
-                debug_print(f"Skip frames: {skip_list}")
             except json.JSONDecodeError as e:
                 print(f"Warning: Invalid skip list JSON: {e}")
         
@@ -245,9 +235,6 @@ class DaxVideoStreamRIFEVFI:
         
         output_fps = original_fps * avg_multiplier
         
-        debug_print(f"Input: {video_info['width']}x{video_info['height']} @ {original_fps:.2f} FPS")
-        debug_print(f"Output: estimated @ {output_fps:.2f} FPS")
-        debug_print(f"Total frames: {total_frames}")
         
         # Setup temporary directories under .tmp
         base_output_dir = folder_paths.get_output_directory()
@@ -265,21 +252,18 @@ class DaxVideoStreamRIFEVFI:
         try:
             # Use optimized processing based on settings
             if enable_optimizations:
-                debug_print("Using optimized batch processing...")
                 self.process_video_optimized(
                     video_filepath, temp_output_dir, multiplier, multiplier_list,
                     skip_list, fast_mode, ensemble, scale_factor, optimal_settings
                 )
             else:
-                debug_print("Using standard sliding window processing...")
                 self.process_video_sliding_window_simplified(
                     video_filepath, temp_output_dir, multiplier, multiplier_list,
                     skip_list, fast_mode, ensemble, scale_factor, buffer_size
                 )
             
             # Combine frames to video
-            debug_print("Creating output video...")
-            self.combine_frames_to_video(temp_output_dir, final_output_path, output_fps, codec, save_metadata)
+            self.combine_frames_to_video(temp_output_dir, final_output_path, output_fps, codec, save_metadata, prompt, extra_pnginfo)
             
         finally:
             # Cleanup temp directories
@@ -299,7 +283,6 @@ class DaxVideoStreamRIFEVFI:
         # Get final file info
         file_size = os.path.getsize(final_output_path) / (1024 * 1024)  # MB
         print(f"Interpolated video saved: {os.path.basename(final_output_path)} ({file_size:.2f}MB)")
-        debug_print(f"Full path: {final_output_path}")
         
         return (final_output_path,)
     
@@ -373,7 +356,6 @@ class DaxVideoStreamRIFEVFI:
             if os.path.exists(path):
                 model_path = path
                 ckpt_name = actual_model_name  # Use actual name for loading
-                debug_print(f"Found RIFE model: {model_path}")
                 break
         
         if model_path is None:
@@ -405,7 +387,6 @@ class DaxVideoStreamRIFEVFI:
                 self.current_model_name = "fallback"
                 return
         
-        debug_print(f"Loading RIFE model: {model_path}")
         
         # Load model with proper RIFE architecture handling
         try:
@@ -414,20 +395,17 @@ class DaxVideoStreamRIFEVFI:
                 try:
                     self.rife_model = torch.jit.load(model_path, map_location=self.device)
                     self.rife_model.eval()
-                    debug_print("Model loaded as TorchScript")
                     
                     # Test the model with dummy input to verify compatibility
                     try:
                         with torch.no_grad():
                             test_input = torch.randn(1, 6, 64, 64).to(self.device)  # 2 RGB frames concatenated
                             _ = self.rife_model(test_input)
-                        debug_print("Model compatibility test passed")
                     except Exception as e:
                         print(f"Model compatibility test failed: {e}")
                         print(f"This model may not be compatible with our interface")
                         
                 except Exception as e:
-                    debug_print(f"TorchScript loading failed: {e}")
                     # Try loading as state dict
                     try:
                         state_dict = torch.load(model_path, map_location=self.device)
@@ -440,10 +418,7 @@ class DaxVideoStreamRIFEVFI:
                         self.rife_model.load_state_dict(state_dict, strict=False)
                         self.rife_model.to(self.device)
                         self.rife_model.eval()
-                        debug_print("Model loaded as state dict")
                     except Exception as state_e:
-                        debug_print(f"State dict loading also failed: {state_e}")
-                        debug_print("Using fallback linear interpolation")
                         self.rife_model = "dummy"
             
             elif model_path.endswith('.pkl'):
@@ -466,10 +441,8 @@ class DaxVideoStreamRIFEVFI:
                 
                 self.rife_model.to(self.device)
                 self.rife_model.eval()
-                debug_print("Model loaded from pickle")
             
             self.current_model_name = ckpt_name
-            debug_print("RIFE model loaded successfully")
             
         except Exception as e:
             # Fallback: create dummy model for testing
@@ -492,14 +465,11 @@ class DaxVideoStreamRIFEVFI:
             
             # Determine RIFE version from checkpoint name
             version = self.get_rife_version(ckpt_name)
-            debug_print(f"Creating RIFE {version} architecture using ComfyUI-FI IFNet")
             
             # Create model using ComfyUI-Frame-Interpolation's exact architecture
             return IFNet(arch_ver=version)
             
         except ImportError as e:
-            debug_print(f"ComfyUI-Frame-Interpolation not available: {e}")
-            debug_print("Using fallback architecture")
             # Fallback to our custom architecture
             version = self.get_rife_version(ckpt_name)
             if version.startswith('4.'):
@@ -571,15 +541,12 @@ class DaxVideoStreamRIFEVFI:
         for i, base_url in enumerate(base_urls, 1):
             try:
                 download_url = base_url + model_name
-                debug_print(f"Attempting download {i}/{len(base_urls)}: {model_name}")
-                debug_print(f"URL: {download_url}")
                 
                 import urllib.request
                 
                 def progress_hook(block_num, block_size, total_size):
                     if total_size > 0:
                         percent = min(block_num * block_size * 100 / total_size, 100)
-                        debug_print(f"Progress: {percent:.1f}%", end='\r')
                 
                 urllib.request.urlretrieve(download_url, target_path, progress_hook)
                 
@@ -624,7 +591,6 @@ class DaxVideoStreamRIFEVFI:
         buffer_size = settings.get("buffer_size", 30)
         cache_size = settings.get("cache_size", 10)
         
-        debug_print(f"Optimized processing: {total_frames} frames, buffer: {buffer_size}")
         
         # Simple frame cache for overlapping frames
         frame_cache = {}
@@ -673,7 +639,7 @@ class DaxVideoStreamRIFEVFI:
                     
                     # Progress and memory management
                     if processed_pairs % 10 == 0:
-                        debug_print(f"Processed {processed_pairs}/{total_frames-1} frame pairs")
+                        pass
                         
                         # Memory management
                         if PERF_OPTIMIZER.should_reduce_batch_size(buffer_size):
@@ -690,7 +656,6 @@ class DaxVideoStreamRIFEVFI:
                 self.save_frame(prev_frame, output_path)
                 output_frame_count += 1
             
-            debug_print(f"Generated {output_frame_count} total frames from {total_frames} input frames")
         
         finally:
             cap.release()
@@ -757,14 +722,12 @@ class DaxVideoStreamRIFEVFI:
             if (i + 1) % clear_cache_interval == 0:
                 torch.cuda.empty_cache() if torch.cuda.is_available() else None
             
-            debug_print(f"Processed frame pair {i+1}/{len(frame_files)-1}")
         
         # Save the last frame
         last_frame_path = os.path.join(input_dir, frame_files[-1])
         output_path = os.path.join(output_dir, f"frame_{output_frame_count:06d}.png")
         shutil.copy2(last_frame_path, output_path)
         
-        debug_print(f"Generated {output_frame_count + 1} total frames")
     
     def load_frame(self, frame_path):
         """Load frame as tensor"""
@@ -865,7 +828,6 @@ class DaxVideoStreamRIFEVFI:
                 frames.append(interpolated)
             
         except Exception as e:
-            debug_print(f"Warning: RIFE inference failed ({e}), using enhanced linear interpolation")
             # Enhanced fallback with temporal consistency
             for i in range(1, multiplier):
                 t = i / multiplier
@@ -995,13 +957,12 @@ class DaxVideoStreamRIFEVFI:
             return final_result
             
         except Exception as e:
-            debug_print(f"Multi-scale refinement failed: {e}, using single-scale result")
             return interpolated
         finally:
             # Clear flag
             self._in_multiscale = False
     
-    def combine_frames_to_video(self, frames_dir, output_path, fps, codec, save_metadata=True):
+    def combine_frames_to_video(self, frames_dir, output_path, fps, codec, save_metadata=True, prompt=None, extra_pnginfo=None):
         """Combine frames to video using ffmpeg"""
         codec_settings = {
             "h264": ["-c:v", "libx264", "-preset", "slow"],
@@ -1027,21 +988,31 @@ class DaxVideoStreamRIFEVFI:
         # Gather metadata if saving
         metadata_file_path = None
         if save_metadata:
-            metadata = gather_comfyui_metadata("DaxNodes StreamRIFE")
-            if metadata:
-                metadata_file_path = create_metadata_file(metadata)
+            video_metadata = gather_comfyui_metadata("DaxNodes StreamRIFE", prompt, extra_pnginfo)
+            if video_metadata:
+                metadata_file_path = create_metadata_file(video_metadata)
         
-        # Handle metadata in FFmpeg command
+        # Build FFmpeg command with metadata (like VideoSave)
         if metadata_file_path:
-            cmd.extend(["-i", metadata_file_path, "-map", "0", "-map_metadata", "1"])
-        elif not save_metadata:
-            cmd.extend(["-map_metadata", "-1"])
-        
-        cmd.append(output_path)
-        
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise RuntimeError(f"Video creation failed: {result.stderr}")
+            # Insert metadata file as first input, then frames
+            # Structure: ["ffmpeg", "-y", "-i", metadata_file, "-framerate", fps, "-i", frames, ...codec args..., "-metadata", "creation_time=now", output]
+            cmd_parts = cmd[:2]  # ["ffmpeg", "-y"]
+            cmd_parts.extend(["-i", metadata_file_path])  # Add metadata input first
+            cmd_parts.extend(cmd[2:])  # Add rest of command
+            cmd_parts.extend(["-metadata", "creation_time=now"])  # Add creation time
+            cmd_parts.append(output_path)
+            
+            result = subprocess.run(cmd_parts, capture_output=True, text=True)
+            if result.returncode != 0:
+                raise RuntimeError(f"Video creation failed: {result.stderr}")
+        else:
+            if not save_metadata:
+                cmd.extend(["-map_metadata", "-1"])
+            cmd.append(output_path)
+            
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                raise RuntimeError(f"Video creation failed: {result.stderr}")
         
         # Clean up metadata file
         cleanup_metadata_file(metadata_file_path)

@@ -45,6 +45,9 @@ class DaxVideoSegmentSaver:
                 "codec": (["h264", "h265", "vp9", "prores"],),
             },
             "optional": {
+                "se_result": ("INT", {
+                    "tooltip": "Skip save when equals 1, save when any other value"
+                }),
             }
         }
     
@@ -59,7 +62,12 @@ class DaxVideoSegmentSaver:
         return f"{execution_id}_{filename_prefix}"
     
     def save_segment(self, images, execution_id, loop_index, 
-                           fps, filename_prefix, format, codec):
+                           fps, filename_prefix, format, codec, se_result=None):
+        
+        # Check se_result for conditional saving
+        if se_result == 1:
+            print(f"Skipping save: se_result={se_result} (execution={execution_id}, loop={loop_index})")
+            return ("", execution_id)
         
         state_key = self.get_state_key(execution_id, filename_prefix)
         

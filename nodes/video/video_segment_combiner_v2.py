@@ -6,7 +6,6 @@ import time
 import cv2
 import json
 import subprocess
-from ...utils.debug_utils import debug_print
 from ...utils.metadata_utils import gather_comfyui_metadata, create_metadata_file, cleanup_metadata_file
 
 class DaxVideoSegmentCombinerV2:
@@ -43,6 +42,10 @@ class DaxVideoSegmentCombinerV2:
                     "default": True,
                     "tooltip": "Include metadata in output video file"
                 }),
+            },
+            "hidden": {
+                "prompt": "PROMPT",
+                "extra_pnginfo": "EXTRA_PNGINFO",
             }
         }
     
@@ -54,53 +57,40 @@ class DaxVideoSegmentCombinerV2:
     
     def load_segments_from_directory(self, execution_id):
         """Scan execution directory and find all video segments"""
-        # Look in structured directory: output/.tmp/<execution_id>/
-        base_output_dir = folder_paths.get_output_directory()
-        tmp_base_dir = os.path.join(base_output_dir, ".tmp")
-        execution_dir = os.path.join(tmp_base_dir, str(execution_id))
-        
-        debug_print(f"Scanning execution directory: {execution_dir}")
-        
-        if not os.path.exists(execution_dir):
-            debug_print(f"Execution directory does not exist: {execution_dir}")
-            # Check what execution dirs DO exist
-            if os.path.exists(tmp_base_dir):
-                existing_dirs = [d for d in os.listdir(tmp_base_dir) if os.path.isdir(os.path.join(tmp_base_dir, d))]
-                debug_print(f"Available execution directories in .tmp: {existing_dirs}")
-            return {}
-        
-        # Find all video files that match pattern: <execution_id>_<loop_index>.ext
-        segments = {}
-        files = os.listdir(execution_dir)
-        
-        for file in files:
-            # Look for video files matching pattern: <execution_id>_<loop_index>.ext
-            if file.endswith(('.mp4', '.webm', '.mov', '.avi')):
-                try:
-                    # Parse filename: execution_id_loop_index.ext
-                    name_part = file.split('.')[0]  # Remove extension
-                    parts = name_part.split('_')
-                    
-                    if len(parts) >= 2:
-                        file_exec_id = parts[0]
-                        loop_index_str = parts[1]
+        try:
+            base_output_dir = folder_paths.get_output_directory()
+            tmp_base_dir = os.path.join(base_output_dir, ".tmp")
+            execution_dir = os.path.join(tmp_base_dir, str(execution_id))
+            
+            if not os.path.exists(execution_dir):
+                return {}
+            
+            segments = {}
+            files = os.listdir(execution_dir)
+            
+            for file in files:
+                if file.endswith(('.mp4', '.webm', '.mov', '.avi')):
+                    try:
+                        name_part = file.split('.')[0]
+                        parts = name_part.split('_')
                         
-                        # Verify this file belongs to our execution
-                        if file_exec_id == str(execution_id):
-                            try:
-                                loop_index = int(loop_index_str)
-                                file_path = os.path.join(execution_dir, file)
-                                segments[loop_index] = file_path
-                                debug_print(f"Found segment {loop_index}: {file}")
-                            except ValueError:
-                                debug_print(f"Skipping file with invalid loop index: {file}")
-                        else:
-                            debug_print(f"Skipping file for different execution: {file}")
-                except Exception as e:
-                    debug_print(f"Error parsing filename {file}: {e}")
-        
-        debug_print(f"Found {len(segments)} segments: {sorted(segments.keys())}")
-        return segments
+                        if len(parts) >= 2:
+                            file_exec_id = parts[0]
+                            loop_index_str = parts[1]
+                            
+                            if file_exec_id == str(execution_id):
+                                try:
+                                    loop_index = int(loop_index_str)
+                                    file_path = os.path.join(execution_dir, file)
+                                    segments[loop_index] = file_path
+                                except ValueError:
+                                    pass
+                    except Exception:
+                        pass
+            
+            return segments
+        except Exception:
+            return {}
     
     def extract_frames_from_video(self, video_path, num_frames=1, from_end=False):
         """Extract specific frames from a video file using OpenCV"""
@@ -113,7 +103,6 @@ class DaxVideoSegmentCombinerV2:
             
             frames = []
             if from_end:
-                # Get last frame(s)
                 start_frame = max(0, total_frames - num_frames)
                 cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
             
@@ -121,9 +110,7 @@ class DaxVideoSegmentCombinerV2:
                 ret, frame = cap.read()
                 if not ret:
                     break
-                # Convert BGR to RGB
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                # Normalize to 0-1 range
                 frame_normalized = frame_rgb.astype(np.float32) / 255.0
                 frames.append(frame_normalized)
             
@@ -132,62 +119,41 @@ class DaxVideoSegmentCombinerV2:
             cap.release()
     
     
-    def combine_segments_v2(self, execution_id, output_prefix, fps, format, codec, output_dir="", save_metadata=True):
+    def combine_segments_v2(self, execution_id, output_prefix, fps, format, codec, output_dir="", save_metadata=True, prompt=None, extra_pnginfo=None):
         
         print(f"Combining segments for execution {execution_id}")
-        debug_print(f"Input parameters: execution_id={execution_id}, output_prefix='{output_prefix}', fps={fps}, format={format}, codec={codec}, output_dir='{output_dir}'")
         
-        # Load segments by scanning the execution directory
-        debug_print("Loading segments from execution directory...")
         segments = self.load_segments_from_directory(execution_id)
+        
+        if segments is None:
+            print(f"ERROR: load_segments_from_directory returned None for execution {execution_id}")
+            raise ValueError(f"Failed to load segments for execution_id={execution_id}")
         
         if not segments:
             print(f"ERROR: No segments found for execution {execution_id}")
             raise ValueError(f"No video segments found in execution directory for execution_id={execution_id}")
         
-        debug_print(f"Raw segments dictionary: {segments}")
-        
-        # Sort segments by loop index
         sorted_indices = sorted(segments.keys())
         segment_paths = [segments[idx] for idx in sorted_indices]
         
         print(f"Found {len(segment_paths)} segments to combine")
-        debug_print(f"Sorted indices: {sorted_indices}")
         for idx, path in enumerate(segment_paths):
-            if os.path.exists(path):
-                size_mb = os.path.getsize(path) / (1024 * 1024)
-                debug_print(f"Segment {idx}: {os.path.basename(path)} ({size_mb:.2f}MB)")
-            else:
-                debug_print(f"Segment {idx}: {os.path.basename(path)} (FILE MISSING!)")
+            if not os.path.exists(path):
+                print(f"ERROR: Missing segment file: {os.path.basename(path)}")
         
-        # Verify all segments exist
         missing = [p for p in segment_paths if not os.path.exists(p)]
         if missing:
             print(f"ERROR: Missing segment files: {missing}")
             raise ValueError(f"Missing segment files: {missing}")
         
-        # Determine output directory
-        debug_print("Determining output directory...")
         if output_dir and output_dir.strip():
-            debug_print(f"Custom output_dir provided: '{output_dir}'")
-            
-            # Clean the path and make it relative to ComfyUI output directory
             clean_output_dir = output_dir.lstrip('./\\')
             base_output_dir = folder_paths.get_output_directory()
             final_output_dir = os.path.join(base_output_dir, clean_output_dir)
             final_output_dir = os.path.normpath(final_output_dir)
-            
-            debug_print(f"Cleaned path: '{clean_output_dir}'")
-            debug_print(f"Base output dir: '{base_output_dir}'")
-            debug_print(f"Final output dir: '{final_output_dir}'")
-            
             os.makedirs(final_output_dir, exist_ok=True)
         else:
             final_output_dir = folder_paths.get_output_directory()
-            debug_print(f"Using default ComfyUI output directory: '{final_output_dir}'")
-        
-        # Generate filename with counter (ComfyUI standard)
-        debug_print("Generating output filename...")
         counter = 1
         while True:
             filename = f"{output_prefix}_{counter:05d}.{format}"
@@ -196,11 +162,8 @@ class DaxVideoSegmentCombinerV2:
                 break
             counter += 1
         
-        debug_print(f"Generated filename: '{filename}'")
-        debug_print(f"Full output path: '{final_output_path}'")
         
         # Get video info from first segment and verify consistency
-        debug_print(f"Analyzing first segment: {segment_paths[0]}")
         cap = cv2.VideoCapture(segment_paths[0])
         if not cap.isOpened():
             print(f"ERROR: Failed to open first video: {segment_paths[0]}")
@@ -212,14 +175,9 @@ class DaxVideoSegmentCombinerV2:
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         cap.release()
         
-        debug_print(f"First segment info: {width}x{height} @ {original_fps:.2f} FPS, {frame_count} frames")
-        debug_print(f"Output settings: {width}x{height} @ {fps} FPS")
-        debug_print(f"Output: {final_output_path}")
         
         # Verify all segments have same resolution
-        debug_print("Verifying segment consistency...")
         for i, seg_path in enumerate(segment_paths):
-            debug_print(f"Checking segment {i}: {os.path.basename(seg_path)}")
             cap = cv2.VideoCapture(seg_path)
             if cap.isOpened():
                 seg_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -228,7 +186,6 @@ class DaxVideoSegmentCombinerV2:
                 seg_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
                 cap.release()
                 
-                debug_print(f"Resolution: {seg_width}x{seg_height}, FPS: {seg_fps:.2f}, Frames: {seg_frames}")
                 
                 if seg_width != width or seg_height != height:
                     print(f"WARNING: Resolution mismatch! Expected {width}x{height}")
@@ -237,29 +194,16 @@ class DaxVideoSegmentCombinerV2:
             else:
                 print("ERROR: Could not read segment!")
         
-        debug_print("Using FFmpeg with H264 for high quality output")
         # Create a temporary file list for FFmpeg concat
         temp_dir = os.path.dirname(final_output_path)
         concat_file = os.path.join(temp_dir, f"concat_{execution_id}.txt")
         
         try:
-            # Debug: Check frame counts in each segment
-            debug_print("Analyzing segment frame counts before combining...")
-            for i, seg_path in enumerate(segment_paths):
-                cap = cv2.VideoCapture(seg_path)
-                if cap.isOpened():
-                    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-                    cap.release()
-                    debug_print(f"Segment {i}: {frame_count} frames")
-                else:
-                    debug_print(f"Segment {i}: Could not read frame count")
-            
-            # Create concat file for FFmpeg (direct concatenation without blending)
+            # Create concat file for FFmpeg
             with open(concat_file, 'w') as f:
                 for seg_path in segment_paths:
                     f.write(f"file '{os.path.abspath(seg_path)}'\n")
             
-            debug_print(f"Combining {len(segment_paths)} segments without blending")
             
             # Use FFmpeg to concatenate with H264
             ffmpeg_cmd = [
@@ -276,25 +220,56 @@ class DaxVideoSegmentCombinerV2:
             # Gather metadata if saving
             metadata_file_path = None
             if save_metadata:
-                metadata = gather_comfyui_metadata("DaxNodes SegmentCombiner")
-                if metadata:
-                    metadata_file_path = create_metadata_file(metadata)
+                print(f"Gathering metadata with prompt={prompt is not None}, extra_pnginfo={extra_pnginfo is not None}")
+                video_metadata = gather_comfyui_metadata("DaxNodes SegmentCombiner", prompt, extra_pnginfo)
+                print(f"Video metadata result: {video_metadata is not None}")
+                if video_metadata:
+                    metadata_file_path = create_metadata_file(video_metadata)
+                    print(f"Metadata file created: {metadata_file_path is not None}")
+                else:
+                    print("No metadata generated!")
             
-            # Handle metadata in FFmpeg command
+            # For concat, we need a different approach - concat doesn't support multiple inputs
             if metadata_file_path:
-                ffmpeg_cmd.extend(["-i", metadata_file_path, "-map_metadata", str(len(segment_paths))])
-            elif not save_metadata:
-                ffmpeg_cmd.extend(["-map_metadata", "-1"])
+                # Generate temp filename with same extension
+                base_path, ext = os.path.splitext(final_output_path)
+                temp_output = f"{base_path}_temp{ext}"
+                
+                try:
+                    # First pass: concat without metadata
+                    ffmpeg_cmd.append(temp_output)
+                    
+                    result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+                    
+                    if result.returncode != 0:
+                        raise RuntimeError(f"FFmpeg concat failed: {result.stderr}")
+                    
+                    # Second pass: add metadata (metadata file first, then video)
+                    metadata_cmd = ["ffmpeg", "-y", "-i", metadata_file_path, "-i", temp_output,
+                                   "-c", "copy", "-map", "1:v", "-map", "1:a?",
+                                   "-metadata", "creation_time=now", final_output_path]
+                    result = subprocess.run(metadata_cmd, capture_output=True, text=True)
+                    
+                    if result.returncode != 0:
+                        raise RuntimeError(f"FFmpeg metadata pass failed: {result.stderr}")
+                        
+                finally:
+                    # Always clean up temp file
+                    if os.path.exists(temp_output):
+                        os.remove(temp_output)
+                
+                # Continue to preview frame extraction - don't return early
+            else:
+                # Only run if we didn't already process with metadata
+                if not save_metadata:
+                    ffmpeg_cmd.extend(["-map_metadata", "-1"])
+                ffmpeg_cmd.append(final_output_path)
             
-            ffmpeg_cmd.append(final_output_path)
-            
-            debug_print(f"Running FFmpeg concat: {' '.join(ffmpeg_cmd)}")
-            result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
-            
-            if result.returncode != 0:
-                raise RuntimeError(f"FFmpeg concat failed: {result.stderr}")
-            
-            debug_print(f"FFmpeg success: Combined {len(segment_paths)} segments")
+                result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+                
+                if result.returncode != 0:
+                    raise RuntimeError(f"FFmpeg concat failed: {result.stderr}")
+                
             
         finally:
             # Clean up concat file
@@ -311,15 +286,12 @@ class DaxVideoSegmentCombinerV2:
         print(f"Combined video saved: {display_filename} ({file_size:.2f}MB)")
         
         # Extract all frames for preview
-        debug_print("Extracting all frames for preview...")
         cap = cv2.VideoCapture(final_output_path)
         if not cap.isOpened():
-            debug_print("WARNING: Could not open output video for frame extraction")
             # Return empty tensor if we can't read the video
             preview_frames = torch.zeros((1, 64, 64, 3), dtype=torch.float32)
         else:
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            debug_print(f"Total frames in output: {total_frames}")
             
             frames = []
             for i in range(total_frames):
@@ -330,7 +302,6 @@ class DaxVideoSegmentCombinerV2:
                     frame_normalized = frame_rgb.astype(np.float32) / 255.0
                     frames.append(frame_normalized)
                 else:
-                    debug_print(f"Failed to read frame {i}")
                     break
             
             cap.release()
@@ -338,9 +309,7 @@ class DaxVideoSegmentCombinerV2:
             if frames:
                 # Stack frames into tensor
                 preview_frames = torch.from_numpy(np.array(frames)).float()
-                debug_print(f"Extracted {len(frames)} frames for preview")
             else:
-                debug_print("WARNING: No frames could be extracted")
                 preview_frames = torch.zeros((1, 64, 64, 3), dtype=torch.float32)
         
         # Return video for display in ComfyUI interface
