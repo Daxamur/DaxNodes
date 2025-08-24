@@ -1,17 +1,6 @@
 import { app } from "../../scripts/app.js";
 
-/*
- * Video preview functionality adapted from ComfyUI-VideoHelperSuite
- * Original source: https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite
- * License: GNU General Public License v3.0
- * 
- * Portions of this code are based on or adapted from ComfyUI-VideoHelperSuite,
- * specifically the video widget implementation patterns, event handling, and
- * sizing logic. We comply with GPL v3.0 by:
- * - Maintaining this attribution notice
- * - Our project is also GPL v3.0 compatible
- * - Source code is available
- */
+// Video preview widget for ComfyUI
 
 // Add video display support for our video nodes
 app.registerExtension({
@@ -77,7 +66,7 @@ app.registerExtension({
                     }
                 };
                 
-                // Create video preview widget (VHS implementation)
+                // Create video preview widget
                 const nodeId = this.id || `node_${Math.random().toString(36).substr(2, 9)}`;
                 
                 // Clean up existing video widgets

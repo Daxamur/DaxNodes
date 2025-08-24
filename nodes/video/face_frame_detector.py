@@ -1,7 +1,7 @@
 """
 Face Frame Detection Node for ComfyUI
 
-Advanced face detection and eye state analysis for optimal video frame selection.
+Face detection and eye state analysis for video frame selection.
 Uses MediaPipe for robust face detection and custom EAR calculation for eye analysis.
 
 Credits:

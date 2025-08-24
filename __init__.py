@@ -1,6 +1,6 @@
 """
-DaxNodes - Professional ComfyUI Node Pack
-A collection of high-quality video processing and utility nodes for ComfyUI
+DaxNodes - ComfyUI Node Pack
+A collection of video processing and utility nodes for ComfyUI
 """
 
 import os

@@ -1,0 +1,27 @@
+[project]
+name = "DaxNodes"
+version = "1.0.0"
+description = "Video processing and utility nodes for ComfyUI"
+authors = [{name = "Daxamur"}]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "mediapipe>=0.10.0",
+    "opencv-python>=4.8.0", 
+    "scipy>=1.10.0",
+    "numpy>=1.24.0",
+    "psutil>=5.8.0",
+    "color-matcher>=0.3.0"
+]
+
+[project.urls]
+Repository = "https://github.com/Daxamur/DaxNodes"
+Issues = "https://github.com/Daxamur/DaxNodes/issues"
+
+[tool.comfyui]
+display_name = "DaxNodes"
+description = "Video processing and utility nodes"
+author = "Daxamur"
+version = "1.0.0"
+comfyui_version = ">=0.0.1"

@@ -9,7 +9,7 @@ import subprocess
 from ...utils.debug_utils import debug_print
 
 class DaxVideoSegmentSaver:
-    """Professional video segment saver with smart caching and state management
+    """Video segment saver with caching and state management
     
     Efficiently saves video segments with execution tracking to prevent duplicate processing.
     Features intelligent caching and support for multiple video formats.
@@ -50,7 +50,7 @@ class DaxVideoSegmentSaver:
     
     RETURN_TYPES = ("STRING", "INT")
     RETURN_NAMES = ("packed_filenames", "execution_id")
-    FUNCTION = "save_segment_smart"
+    FUNCTION = "save_segment"
     CATEGORY = "Video"
     OUTPUT_NODE = True
     
@@ -58,7 +58,7 @@ class DaxVideoSegmentSaver:
         """Generate a unique key for this execution context"""
         return f"{execution_id}_{filename_prefix}"
     
-    def save_segment_smart(self, images, execution_id, loop_index, 
+    def save_segment(self, images, execution_id, loop_index, 
                            fps, filename_prefix, format, codec):
         
         state_key = self.get_state_key(execution_id, filename_prefix)

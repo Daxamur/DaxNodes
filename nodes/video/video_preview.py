@@ -104,7 +104,7 @@ class VideoPreview:
             "type": "output",
             "format": f"video/h264-{format_type}",  # e.g., "video/h264-mp4"
             "frame_rate": frame_rate,
-            "workflow": filename,  # VideoHelperSuite uses metadata PNG, we'll use video file
+            "workflow": filename,
             "fullpath": display_path,  # Full path to actual video file
         }
         

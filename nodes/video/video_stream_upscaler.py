@@ -2,7 +2,7 @@
 Video Stream Upscaler Node for ComfyUI
 
 Upscales video files using ComfyUI upscale models.
-Model loading and calling conventions inspired by ComfyUI by comfyanonymous.
+Memory-efficient stream upscaling for long videos.
 
 Original ComfyUI Copyright (C) 2023 comfyanonymous
 ComfyUI is licensed under GPL v3: https://github.com/comfyanonymous/ComfyUI
@@ -435,7 +435,7 @@ class DaxVideoStreamUpscaler:
         return processed_count
     
     def upscale_single_frame(self, input_path, output_path, upscale_model):
-        """Upscale single frame using ComfyUI's exact pipeline from ComfyRoll nodes"""
+        """Upscale single frame using ComfyUI model pipeline"""
         debug_print(f"UPSCALE_SINGLE_FRAME: Starting for {input_path}")
         from PIL import Image as PILImage
         import numpy as np

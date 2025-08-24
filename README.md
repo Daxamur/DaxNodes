@@ -1,13 +1,13 @@
 # DaxNodes - ComfyUI Node Pack
 
-A comprehensive collection of high-performance video processing and utility nodes for ComfyUI, designed for long looping video generation workflows and optimized for memory usage.
+Video processing and utility nodes for ComfyUI, designed for long video generation workflows with memory optimization.
 
 ## Features
 
-- **Advanced Video Processing**: Color correction, frame interpolation, upscaling, and segmentation
-- **Smart Face Detection**: MediaPipe-powered face analysis with eye state detection
+- **Video Processing**: Color correction, frame interpolation, upscaling, and segmentation
+- **Face Detection**: MediaPipe face analysis with eye state detection
 - **Memory Optimized**: Stream processing for handling large videos without VRAM limits
-- **Production Ready**: Robust error handling, debug controls, and clean interfaces
+- **Error Handling**: Debug controls and clean interfaces
 - **Metadata Support**: Optional metadata preservation in all video outputs
 
 ## Installation
@@ -49,24 +49,23 @@ pip install -r requirements.txt
 - MediaPipe (for face detection)
 - SciPy (for color correction)
 - NumPy
-- color-matcher (for advanced color matching algorithms)
+- color-matcher (for color matching algorithms)
 
 ## Nodes Overview
 
 ### Video Processing
 
 #### **Video Color Correction**
-Advanced color matching using multiple algorithms (hm-mvgd-hm, hm-mkl-hm, mkl, mvgd, hm, reinhard).
+Color matching using multiple algorithms (hm-mvgd-hm, hm-mkl-hm, mkl, mvgd, hm, reinhard).
 - **Input**: Images, Reference Video, Method, Strength, Optional Anchor Frame
 - **Output**: Color corrected images
-- **Features**: KJNodes-compatible algorithms, multi-segment workflow support, adaptive processing detection
-- **Inspired by**: KJNodes
+- **Features**: Multiple color matching algorithms, multi-segment workflow support, adaptive processing detection
 
 #### **Video Segment Saver** 
 Video segment export with execution tracking and codec selection.
 - **Input**: Images, segment info, format settings
 - **Output**: Video file path, metadata
-- **Features**: Smart caching, multiple formats (MP4, WebM, MOV, AVI), metadata control
+- **Features**: Caching, multiple formats (MP4, WebM, MOV, AVI), metadata control
 
 #### **Video Segment Combiner**
 Automatic segment discovery and combination by execution ID.
@@ -75,7 +74,7 @@ Automatic segment discovery and combination by execution ID.
 - **Features**: Auto-discovery, consistency validation, FFmpeg optimization
 
 #### **Video Saver**
-High-quality video export with encoding options.
+Video export with encoding options.
 - **Input**: Images, FPS, format, codec
 - **Output**: Video file path
 - **Features**: H264/H265/VP9/ProRes support, custom directories
@@ -85,30 +84,26 @@ Memory-efficient stream upscaling without VRAM limits.
 - **Input**: Video file path, upscale model, factor
 - **Output**: Upscaled video path, preview
 - **Features**: Frame streaming, progress tracking, multiple tile sizes
-- **Inspired by**: ComfyUI-Frame-Interpolation
 
 #### **Video Frame Interpolation**
 RIFE-powered frame interpolation for smooth motion.
 - **Input**: Video file path, RIFE model, interpolation factor
 - **Output**: Interpolated video, preview
 - **Features**: Multiple RIFE versions, memory management, streaming processing
-- **Inspired by**: ComfyUI-Frame-Interpolation
 
 #### **Video Preview**
 Generate preview frames from video tensors.
 - **Input**: Images
 - **Output**: Preview image grid
 - **Features**: Automatic grid layout, quality optimization
-- **Inspired by**: ComfyUI-VideoHelperSuite
 
 ### Utility Nodes
 
 #### **Face Frame Detector**
-Advanced face detection with eye state analysis.
+Face detection with eye state analysis.
 - **Input**: Images, detection settings, thresholds  
-- **Output**: Best face frame, frames from end, metadata, debug overlay
+- **Output**: Selected face frame, frames from end, metadata, debug overlay
 - **Features**: MediaPipe integration, eye aspect ratio analysis, frontal face detection
-- **Inspired by**: MediaPipe
 
 #### **Batch Trimmer**
 Remove frames from end of image batches.
@@ -140,7 +135,7 @@ Extract string from packed string array by index.
 - **Output**: Selected string
 - **Features**: Safe bounds checking, empty fallback
 
-## Advanced Features
+## Features
 
 ### Debug System
 All nodes support environment-controlled debug output:
@@ -160,10 +155,10 @@ Video nodes support optional metadata preservation:
 ### Memory Management
 - **Stream Processing**: Handle unlimited video length without VRAM constraints
 - **Dynamic Tiling**: Automatic tile size adjustment based on available memory
-- **Batch Optimization**: Smart batch sizing for optimal performance
+- **Batch Optimization**: Automatic batch sizing based on system resources
 
 ### Performance Optimization
-- **Auto-Detection**: System capability detection for optimal settings
+- **Auto-Detection**: System capability detection for settings
 - **Progressive Processing**: Frame-by-frame processing for large videos  
 - **FFmpeg Integration**: Hardware-accelerated encoding when available
 
@@ -192,11 +187,11 @@ Load Images → Face Frame Detector → Video Color Correction
 
 ## Error Handling
 
-Robust error handling with:
+Error handling with:
 - Input validation and safe defaults
 - Graceful degradation when dependencies missing
 - Clear error messages with resolution steps
-- Automatic fallbacks for optimal user experience
+- Automatic fallbacks
 
 ## Troubleshooting
 

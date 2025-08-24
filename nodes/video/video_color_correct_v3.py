@@ -1,8 +1,8 @@
 """
 Video Color Correction Node for ComfyUI
 
-Advanced color matching using color-matcher library with support for multiple algorithms.
-Based on KJNodes implementation for consistent professional video color correction.
+Color matching using color-matcher library with support for multiple algorithms.
+Color correction algorithms for video consistency.
 
 Portions of this code use the color-matcher library:
 - Library: https://github.com/hahnec/color-matcher
@@ -19,17 +19,17 @@ from concurrent.futures import ThreadPoolExecutor
 import sys
 from ...utils.debug_utils import debug_print
 
-# Try to import color-matcher library (same as KJNodes uses)
+# Import color-matcher library
 try:
     from color_matcher import ColorMatcher
     HAS_COLOR_MATCHER = True
-    debug_print("color-matcher library found - advanced color matching available")
+    debug_print("color-matcher library found - color matching available")
 except ImportError:
     HAS_COLOR_MATCHER = False
     debug_print("color-matcher library not found - install with: pip install color-matcher")
 
 class DaxVideoColorCorrect:
-    """Advanced color correction using KJNodes methodology for video consistency"""
+    """Color correction node for video consistency"""
     
     @classmethod
     def INPUT_TYPES(cls):
@@ -121,7 +121,7 @@ class DaxVideoColorCorrect:
         
         return is_processed, adaptive_strength
     
-    def kjnodes_color_match_single(self, source, target, method, strength):
+    def color_match_single(self, source, target, method, strength):
         """Color matching implementation for single frame"""
         if not HAS_COLOR_MATCHER:
             # Fallback to simple mean matching if color-matcher not available
@@ -132,7 +132,7 @@ class DaxVideoColorCorrect:
             return np.clip(result, 0, 1)
         
         try:
-            # Convert to uint8 for color-matcher (same as KJNodes)
+            # Convert to uint8 for color-matcher
             source_uint8 = (source * 255).astype(np.uint8)
             target_uint8 = (target * 255).astype(np.uint8)
             
@@ -146,7 +146,7 @@ class DaxVideoColorCorrect:
             # Convert back to float
             matched_float = matched_uint8.astype(np.float32) / 255.0
             
-            # Apply strength blending (exact KJNodes formula)
+            # Apply strength blending
             result = source + strength * (matched_float - source)
             
             return np.clip(result, 0, 1)
@@ -164,7 +164,7 @@ class DaxVideoColorCorrect:
         """Process multiple frames sequentially to avoid threading issues"""
         results = []
         for frame in frames:
-            result = self.kjnodes_color_match_single(frame, target_frame, method, strength)
+            result = self.color_match_single(frame, target_frame, method, strength)
             results.append(result)
         return results
 
@@ -180,7 +180,7 @@ class DaxVideoColorCorrect:
         if ref_np.shape[0] == 0:
             return (images,)
         
-        debug_print(f"COLOR CORRECT V3: KJNodes method='{method}' for {images_np.shape[0]} frames (single-clip only)")
+        debug_print(f"COLOR CORRECT V3: method='{method}' for {images_np.shape[0]} frames (single-clip only)")
         
         # Use reference video last frame as target
         target_frame = ref_np[-1]
@@ -190,7 +190,7 @@ class DaxVideoColorCorrect:
         effective_strength = strength
         debug_print(f"Using strength: {effective_strength:.2f}")
         
-        # Process frames using KJNodes methodology
+        # Process frames
         debug_print(f"Applying {method} color matching...")
         
         # Process all frames sequentially

@@ -8,7 +8,7 @@ import subprocess
 from ...utils.debug_utils import debug_print
 
 class DaxVideoSave:
-    """Save video with professional encoding options and inline preview"""
+    """Save video with encoding options and inline preview"""
     
     @classmethod
     def INPUT_TYPES(cls):
