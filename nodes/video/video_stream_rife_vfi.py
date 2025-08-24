@@ -29,6 +29,7 @@ import json
 from pathlib import Path
 from ...utils.performance_optimizer import PERF_OPTIMIZER
 from ...utils.debug_utils import debug_print
+from ...utils.metadata_utils import gather_comfyui_metadata, create_metadata_file, cleanup_metadata_file
 
 class DaxVideoStreamRIFEVFI:
     """Stream-interpolate video using RIFE without loading entire video into VRAM"""
@@ -1023,7 +1024,17 @@ class DaxVideoStreamRIFEVFI:
         ]
         
         # Add metadata handling
-        if not save_metadata:
+        # Gather metadata if saving
+        metadata_file_path = None
+        if save_metadata:
+            metadata = gather_comfyui_metadata("DaxNodes StreamRIFE")
+            if metadata:
+                metadata_file_path = create_metadata_file(metadata)
+        
+        # Handle metadata in FFmpeg command
+        if metadata_file_path:
+            cmd.extend(["-i", metadata_file_path, "-map", "0", "-map_metadata", "1"])
+        elif not save_metadata:
             cmd.extend(["-map_metadata", "-1"])
         
         cmd.append(output_path)
@@ -1031,6 +1042,9 @@ class DaxVideoStreamRIFEVFI:
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
             raise RuntimeError(f"Video creation failed: {result.stderr}")
+        
+        # Clean up metadata file
+        cleanup_metadata_file(metadata_file_path)
 
 
 class ConvBlock(torch.nn.Module):

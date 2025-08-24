@@ -6,6 +6,7 @@ import time
 import cv2
 import subprocess
 from ...utils.debug_utils import debug_print
+from ...utils.metadata_utils import gather_comfyui_metadata, create_metadata_file, cleanup_metadata_file
 
 class DaxVideoSave:
     """Save video with encoding options and inline preview"""
@@ -48,7 +49,8 @@ class DaxVideoSave:
     CATEGORY = "Video"
     OUTPUT_NODE = True
     
-    def save_video(self, images, fps, filename_prefix, format, codec, output_dir="", audio=None, save_metadata=True):
+    def save_video(self, images, fps, filename_prefix, format, codec, output_dir="", audio=None, save_metadata=True, 
+                   prompt=None, extra_pnginfo=None):
         # Always use ComfyUI output directory as base
         base_output_dir = folder_paths.get_output_directory()
         debug_print(f"base_output_dir = {base_output_dir}")
@@ -95,22 +97,31 @@ class DaxVideoSave:
                 frame_path = os.path.join(temp_frames_dir, f"frame_{i:06d}.png")
                 cv2.imwrite(frame_path, cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR))
             
-            # Use FFmpeg to create video with H264
-            ffmpeg_cmd = [
-                "ffmpeg", "-y",  # -y to overwrite
-                "-framerate", str(fps),
-                "-i", os.path.join(temp_frames_dir, "frame_%06d.png"),
-                "-c:v", "libx264",  # H264 codec
-                "-preset", "slow",  # Better compression
-                "-crf", "18",  # Near-lossless quality
-                "-pix_fmt", "yuv420p",  # Compatibility
-            ]
+            # Gather metadata if saving
+            metadata_file_path = None
+            if save_metadata:
+                metadata = gather_comfyui_metadata("DaxNodes VideoSave", prompt, extra_pnginfo)
+                if metadata:
+                    metadata_file_path = create_metadata_file(metadata)
             
-            # Add metadata handling
-            if not save_metadata:
-                ffmpeg_cmd.extend(["-map_metadata", "-1"])
+            # Use FFmpeg to create video
+            ffmpeg_cmd = ["ffmpeg", "-y", "-framerate", str(fps)]
             
-            ffmpeg_cmd.append(final_output_path)
+            if metadata_file_path:
+                ffmpeg_cmd.extend(["-i", metadata_file_path, "-i", os.path.join(temp_frames_dir, "frame_%06d.png")])
+                ffmpeg_cmd.extend(["-map", "1", "-map_metadata", "0"])
+            else:
+                ffmpeg_cmd.extend(["-i", os.path.join(temp_frames_dir, "frame_%06d.png")])
+                if not save_metadata:
+                    ffmpeg_cmd.extend(["-map_metadata", "-1"])
+            
+            ffmpeg_cmd.extend([
+                "-c:v", "libx264",
+                "-preset", "slow", 
+                "-crf", "18",
+                "-pix_fmt", "yuv420p",
+                final_output_path
+            ])
             
             debug_print(f"Running FFmpeg: {' '.join(ffmpeg_cmd)}")
             result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
@@ -125,6 +136,9 @@ class DaxVideoSave:
             import shutil
             if os.path.exists(temp_frames_dir):
                 shutil.rmtree(temp_frames_dir)
+            
+            # Clean up metadata file
+            cleanup_metadata_file(metadata_file_path)
         
         # Get file size for info
         file_size = os.path.getsize(final_output_path) / (1024 * 1024)  # MB

@@ -25,6 +25,7 @@ import comfy.utils
 from comfy import model_management
 from ...utils.performance_optimizer import PERF_OPTIMIZER
 from ...utils.debug_utils import debug_print
+from ...utils.metadata_utils import gather_comfyui_metadata, create_metadata_file, cleanup_metadata_file
 
 class DaxVideoStreamUpscaler:
     """Stream-upscale video without loading entire video into VRAM"""
@@ -638,7 +639,17 @@ class DaxVideoStreamUpscaler:
         ]
         
         # Add metadata handling
-        if not save_metadata:
+        # Gather metadata if saving
+        metadata_file_path = None
+        if save_metadata:
+            metadata = gather_comfyui_metadata("DaxNodes StreamUpscaler")
+            if metadata:
+                metadata_file_path = create_metadata_file(metadata)
+        
+        # Handle metadata in FFmpeg command
+        if metadata_file_path:
+            cmd.extend(["-i", metadata_file_path, "-map", "0", "-map_metadata", "1"])
+        elif not save_metadata:
             cmd.extend(["-map_metadata", "-1"])
         
         cmd.append(output_path)
@@ -651,6 +662,9 @@ class DaxVideoStreamUpscaler:
             raise RuntimeError(f"Video creation failed: {result.stderr}")
         else:
             debug_print("FFmpeg success")
+        
+        # Clean up metadata file
+        cleanup_metadata_file(metadata_file_path)
     
     def process_video_optimized(self, video_path, output_dir, upscale_model, batch_size, settings):
         """Optimized direct video processing without intermediate PNG files"""

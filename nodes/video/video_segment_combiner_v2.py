@@ -7,6 +7,7 @@ import cv2
 import json
 import subprocess
 from ...utils.debug_utils import debug_print
+from ...utils.metadata_utils import gather_comfyui_metadata, create_metadata_file, cleanup_metadata_file
 
 class DaxVideoSegmentCombinerV2:
     """Combine video segments using execution ID to find segments automatically"""
@@ -272,8 +273,17 @@ class DaxVideoSegmentCombinerV2:
                 "-pix_fmt", "yuv420p",  # Compatibility
             ]
             
-            # Add metadata handling
-            if not save_metadata:
+            # Gather metadata if saving
+            metadata_file_path = None
+            if save_metadata:
+                metadata = gather_comfyui_metadata("DaxNodes SegmentCombiner")
+                if metadata:
+                    metadata_file_path = create_metadata_file(metadata)
+            
+            # Handle metadata in FFmpeg command
+            if metadata_file_path:
+                ffmpeg_cmd.extend(["-i", metadata_file_path, "-map_metadata", str(len(segment_paths))])
+            elif not save_metadata:
                 ffmpeg_cmd.extend(["-map_metadata", "-1"])
             
             ffmpeg_cmd.append(final_output_path)
@@ -290,6 +300,9 @@ class DaxVideoSegmentCombinerV2:
             # Clean up concat file
             if os.path.exists(concat_file):
                 os.remove(concat_file)
+            
+            # Clean up metadata file
+            cleanup_metadata_file(metadata_file_path)
         
         # Get file size and filename for display
         file_size = os.path.getsize(final_output_path) / (1024 * 1024)  # MB
